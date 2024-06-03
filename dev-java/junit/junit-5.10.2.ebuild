@@ -3,14 +3,7 @@
 
 EAPI=8
 
-# Declare the 'doc' USE flag in IUSE -- not JAVA_PKG_IUSE -- to
-# prevent java-pkg-simple.eclass from handling Javadoc; instead,
-# let this ebuild handle Javadoc generation and installation itself.
-# This ebuild invokes java-pkg-simple.eclass's phase functions
-# multiple times to build multiple modules, but the eclass always
-# installs each module's Javadoc to the same directory, which would
-# trigger an error when the second module's Javadoc is installed.
-JAVA_PKG_IUSE="source test"
+JAVA_PKG_IUSE="doc source test"
 
 inherit java-pkg-2 java-pkg-simple
 
@@ -25,7 +18,7 @@ S="${WORKDIR}/junit5-r${PV}"
 LICENSE="EPL-2.0"
 SLOT="5"
 KEYWORDS="amd64 ~arm arm64 ppc64 x86"
-IUSE="doc migration-support suite vintage"
+IUSE="migration-support suite vintage"
 
 CP_DEPEND="
 	dev-java/apiguardian-api:0
@@ -178,16 +171,8 @@ junit5_module_compile() {
 			die "Failed to remove ${module}'s Java 9+ source directory"
 	fi
 
-	java-pkg-simple_src_compile
-	local sources="sources.lst"
+	java-pkg-simple_compile_jar
 	local classes="target/classes"
-
-	# Collect a list of all compiler input files for building Javadoc
-	local source
-	while read source; do
-		echo "${module}/${source}" >> "${all_sources}"
-	done < "${sources}" ||
-		die "Failed to add ${module}'s sources to Javadoc input list"
 
 	# Handle classes that will go into versioned directories.  This will be
 	# no longer needed after https://bugs.gentoo.org/900433 is implemented.
@@ -225,18 +210,11 @@ junit5_module_compile() {
 }
 
 src_compile() {
-	local all_sources="${S}/all-sources.lst"
 	junit5_foreach_module junit5_module_compile
 
 	if use doc; then
 		einfo "Generating Javadoc for all modules ..."
-		local apidoc="target/api"
-		mkdir -p "${apidoc}" || die "Failed to create Javadoc directory"
-		ejavadoc -d "${apidoc}" \
-			-encoding "${JAVA_ENCODING}" -docencoding UTF-8 -charset UTF-8 \
-			-classpath "$(junit5_gen_cp)" ${JAVADOC_ARGS:- -quiet} \
-			-windowtitle "JUnit ${PV} API" \
-			"@${all_sources}"
+		java-pkg-simple_call_ejavadoc
 	fi
 }
 
@@ -325,27 +303,4 @@ src_test() {
 	local status="${?}"
 	[[ "${status}" -eq 2 ]] && die "JUnit did not discover any tests"
 	[[ "${status}" -eq 0 ]] || die "ConsoleLauncher failed"
-}
-
-junit5_module_install() {
-	# It is OK to let java-pkg-simple_src_install call einstalldocs for
-	# each module as long as each documentation file being installed
-	# has a unique filename among _all_ modules; otherwise, some files
-	# would overwrite other ones.
-	if [[ -f README.md ]]; then
-		mv -v README.md "README-${module}.md" ||
-			die "Failed to rename ${module}'s README.md"
-	fi
-	java-pkg-simple_src_install
-}
-
-src_install() {
-	junit5_foreach_module junit5_module_install
-	einstalldocs # For project-global documentation
-
-	if use doc; then
-		einfo "Installing Javadoc for all modules ..."
-		local apidoc="target/api"
-		java-pkg_dojavadoc "${apidoc}"
-	fi
 }

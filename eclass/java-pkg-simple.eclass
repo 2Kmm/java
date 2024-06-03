@@ -486,7 +486,7 @@ java-pkg-simple_compile_jar() {
 
 		cp "${DISTDIR}"/${JAVA_BINJAR_FILENAME} ${JAVA_JAR_FILENAME}\
 			|| die "Could not copy the binary jar file to ${S}"
-		JAVA_INTERNAL_JAR_FILES+=( ${JAVA_JAR_FILENAME} )
+		JAVA_INTERNAL_JAR_FILES+=( "${PWD}/${JAVA_JAR_FILENAME}" )
 		return 0
 	else
 		# auto generate classpath
@@ -502,7 +502,7 @@ java-pkg-simple_compile_jar() {
 	else
 		find "${JAVA_SRC_DIR[@]}" -name \*.java > ${sources}
 	fi
-	JAVA_INTERNAL_SRC_DIRS+=( "${JAVA_SRC_DIR[@]}" )
+	JAVA_INTERNAL_SRC_DIRS+=( "${JAVA_SRC_DIR[@]/#/${PWD}/}" )
 	local -a moduleinfo
 	readarray -t moduleinfo <<<"$(find "${JAVA_SRC_DIR[@]}" -name module-info.java)"
 	java-pkg-simple_getmodulesourcepath "${moduleinfo[@]}"
@@ -565,7 +565,7 @@ java-pkg-simple_compile_jar() {
 			|| die "updating MANIFEST.MF failed"
 		rm -f "${T}/add-to-MANIFEST.MF" || die "cannot remove"
 	fi
-	JAVA_INTERNAL_JAR_FILES+=( ${JAVA_JAR_FILENAME} )
+	JAVA_INTERNAL_JAR_FILES+=( "${PWD}/${JAVA_JAR_FILENAME}" )
 }
 
 # @FUNCTION: java-pkg-simple_src_compile
